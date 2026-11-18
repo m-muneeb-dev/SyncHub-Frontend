@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
+import { useSelector } from 'react-redux'
 
 import Login from '../features/auth/Login'
 import Signup from '../features/auth/signup'
@@ -12,6 +13,11 @@ import ViewTask from '../pages/task/ViewTask'
 import SharedTasksPage from '../pages/sharedTask/SharedTasksPage'
 import FriendsPage from '../pages/friends/friendsPage'
 import FriendRequestsPage from '../pages/friends/FriendRequestsPage'
+
+function RootRedirect() {
+    const isAuthenticated = useSelector((state) => state.auth.isAuthenticated)
+    return <Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />
+}
 
 export default function AppRoutes() {
     return (
@@ -37,13 +43,13 @@ export default function AppRoutes() {
             {/* Default route */}
             <Route
                 path="/"
-                element={<Navigate to="/dashboard" replace />}
+                element={<RootRedirect />}
             />
 
             {/* 404 */}
             <Route
                 path="*"
-                element={<h1 className="p-10 !text-center">404 - Page Not Found</h1>}
+                element={<h1 className="p-10 text-center">404 - Page Not Found</h1>}
             />
         </Routes>
     )

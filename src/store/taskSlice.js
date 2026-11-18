@@ -4,11 +4,14 @@ import { getTasksAPI, deleteTasksAPI, createTaskAPI, updateTaskAPI } from './tas
 // Fetch Tasks
 export const fetchTasks = createAsyncThunk(
     'tasks/fetchTasks',
-    async (_, { rejectWithValue }) => {
+    async (_, { rejectWithValue, signal }) => {
         try {
-            const response = await getTasksAPI()
+            const response = await getTasksAPI({ signal })
             return response
         } catch (error) {
+            if (error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') {
+                return rejectWithValue({ isCanceled: true })
+            }
             return rejectWithValue(
                 error.response?.data?.message || 'Failed to fetch tasks'
             )
@@ -19,11 +22,14 @@ export const fetchTasks = createAsyncThunk(
 // Create Task
 export const createTask = createAsyncThunk(
     'tasks/createTask',
-    async (taskData, { rejectWithValue }) => {
+    async (taskData, { rejectWithValue, signal }) => {
         try {
-            const response = await createTaskAPI(taskData)
+            const response = await createTaskAPI(taskData, { signal })
             return response
         } catch (error) {
+            if (error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') {
+                return rejectWithValue({ isCanceled: true })
+            }
             return rejectWithValue(
                 error.response?.data?.message || 'Failed to create task'
             )
@@ -34,11 +40,14 @@ export const createTask = createAsyncThunk(
 // Update Task
 export const updateTask = createAsyncThunk(
     'tasks/updateTask',
-    async ({ id, ...taskData }, { rejectWithValue }) => {
+    async ({ id, ...taskData }, { rejectWithValue, signal }) => {
         try {
-            const response = await updateTaskAPI(id, taskData)
+            const response = await updateTaskAPI(id, taskData, { signal })
             return response
         } catch (error) {
+            if (error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') {
+                return rejectWithValue({ isCanceled: true })
+            }
             return rejectWithValue(
                 error.response?.data?.message || 'Failed to update task'
             )
@@ -49,11 +58,14 @@ export const updateTask = createAsyncThunk(
 // Delete Task
 export const deleteTask = createAsyncThunk(
     'tasks/deleteTask',
-    async (id, { rejectWithValue }) => {
+    async (id, { rejectWithValue, signal }) => {
         try {
-            await deleteTasksAPI(id)
+            await deleteTasksAPI(id, { signal })
             return id
         } catch (error) {
+            if (error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') {
+                return rejectWithValue({ isCanceled: true })
+            }
             return rejectWithValue(
                 error.response?.data?.message || 'Failed to delete task'
             )
@@ -64,6 +76,7 @@ export const deleteTask = createAsyncThunk(
 // Initial State
 const initialState = {
     tasks: [],
+    status: 'idle', // 'idle' | 'loading' | 'succeeded' | 'failed'
     isLoading: false,
     isCreating: false,
     isUpdating: false,
@@ -87,15 +100,15 @@ const taskSlice = createSlice({
 
             // Fetch Tasks - Pending
             .addCase(fetchTasks.pending, (state) => {
-                if (state.tasks.length === 0) {
-                    state.isLoading = true
-                }
+                state.isLoading = true
+                state.status = 'loading'
                 state.error = null
             })
 
             // Fetch Tasks - Fulfilled
             .addCase(fetchTasks.fulfilled, (state, action) => {
                 state.isLoading = false
+                state.status = 'succeeded'
                 state.tasks = Array.isArray(action.payload)
                     ? action.payload
                     : action.payload?.tasks || []
@@ -104,6 +117,10 @@ const taskSlice = createSlice({
             // Fetch Tasks - Rejected
             .addCase(fetchTasks.rejected, (state, action) => {
                 state.isLoading = false
+                if (action.payload?.isCanceled || action.meta?.aborted) {
+                    return
+                }
+                state.status = 'failed'
                 state.error = action.payload
             })
 
@@ -125,7 +142,9 @@ const taskSlice = createSlice({
             // Create Task - Rejected
             .addCase(createTask.rejected, (state, action) => {
                 state.isCreating = false
-                state.error = action.payload
+                if (!action.payload?.isCanceled && !action.meta?.aborted) {
+                    state.error = action.payload
+                }
             })
 
             // Update Task - Pending
@@ -151,7 +170,9 @@ const taskSlice = createSlice({
             // Update Task - Rejected
             .addCase(updateTask.rejected, (state, action) => {
                 state.isUpdating = false
-                state.error = action.payload
+                if (!action.payload?.isCanceled && !action.meta?.aborted) {
+                    state.error = action.payload
+                }
             })
 
             // Delete Task - Pending
@@ -172,7 +193,9 @@ const taskSlice = createSlice({
             // Delete Task - Rejected
             .addCase(deleteTask.rejected, (state, action) => {
                 state.isDeleting = false
-                state.error = action.payload
+                if (!action.payload?.isCanceled && !action.meta?.aborted) {
+                    state.error = action.payload
+                }
             })
     },
 })

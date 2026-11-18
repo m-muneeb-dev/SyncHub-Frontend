@@ -3,6 +3,7 @@ import authReducer from './authSlice'
 import taskReducer from './taskSlice'
 import friendReducer from './friendSlice'
 import sharedTaskReducer from './sharedTaskSlice'
+import { setStore } from '../services/api'
 
 export const store = configureStore({
     reducer: {
@@ -12,3 +13,6 @@ export const store = configureStore({
         sharedTasks: sharedTaskReducer,
     },
 })
+
+// Inject store into api interceptor to handle 401 logout
+setStore(store)

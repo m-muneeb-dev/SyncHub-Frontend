@@ -1,14 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
-import {
-    getFriendsAPI,
-    getFriendRequestsAPI,
-    getSentFriendRequestsAPI,
-    deleteFriendAPI,
-    sendFriendRequestAPI,
-    acceptFriendRequestAPI,
-    rejectFriendRequestAPI,
-    cancelFriendRequestAPI,
-} from '../store/friendAPI'
+import { getFriendsAPI, getFriendRequestsAPI, getSentFriendRequestsAPI, deleteFriendAPI, sendFriendRequestAPI, acceptFriendRequestAPI, rejectFriendRequestAPI, cancelFriendRequestAPI } from '../store/friendAPI'
 
 // Helper function to extract string error
 const getErrorMessage = (error, defaultMsg) => {
@@ -25,11 +16,14 @@ const getErrorMessage = (error, defaultMsg) => {
 // 1. Fetch friends ka thunk
 export const fetchFriends = createAsyncThunk(
     'friends/fetchFriends',
-    async (_, { rejectWithValue }) => {
+    async (_, { rejectWithValue, signal }) => {
         try {
-            const data = await getFriendsAPI()
+            const data = await getFriendsAPI({ signal })
             return data
         } catch (error) {
+            if (error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') {
+                return rejectWithValue({ isCanceled: true })
+            }
             return rejectWithValue(getErrorMessage(error, 'Failed to fetch friends'))
         }
     }
@@ -38,11 +32,14 @@ export const fetchFriends = createAsyncThunk(
 // 2. Fetch pending received friend requests
 export const fetchFriendRequests = createAsyncThunk(
     'friends/fetchFriendRequests',
-    async (_, { rejectWithValue }) => {
+    async (_, { rejectWithValue, signal }) => {
         try {
-            const data = await getFriendRequestsAPI()
+            const data = await getFriendRequestsAPI({ signal })
             return data
         } catch (error) {
+            if (error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') {
+                return rejectWithValue({ isCanceled: true })
+            }
             return rejectWithValue(getErrorMessage(error, 'Failed to fetch friend requests'))
         }
     }
@@ -51,11 +48,14 @@ export const fetchFriendRequests = createAsyncThunk(
 // 3. Fetch sent invitations ka thunk
 export const fetchSentFriendRequests = createAsyncThunk(
     'friends/fetchSentFriendRequests',
-    async (_, { rejectWithValue }) => {
+    async (_, { rejectWithValue, signal }) => {
         try {
-            const data = await getSentFriendRequestsAPI()
+            const data = await getSentFriendRequestsAPI({ signal })
             return data
         } catch (error) {
+            if (error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') {
+                return rejectWithValue({ isCanceled: true })
+            }
             return rejectWithValue(getErrorMessage(error, 'Failed to fetch sent requests'))
         }
     }
@@ -64,11 +64,14 @@ export const fetchSentFriendRequests = createAsyncThunk(
 // 4. Delete friend ka thunk
 export const deleteFriend = createAsyncThunk(
     'friends/deleteFriend',
-    async (id, { rejectWithValue }) => {
+    async (id, { rejectWithValue, signal }) => {
         try {
-            await deleteFriendAPI(id)
+            await deleteFriendAPI(id, { signal })
             return id
         } catch (error) {
+            if (error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') {
+                return rejectWithValue({ isCanceled: true })
+            }
             return rejectWithValue(getErrorMessage(error, 'Failed to delete friend'))
         }
     }
@@ -77,13 +80,16 @@ export const deleteFriend = createAsyncThunk(
 // 5. Send Friend Request ka thunk
 export const sendFriendRequest = createAsyncThunk(
     'friends/sendFriendRequest',
-    async (email, { rejectWithValue, dispatch }) => {
+    async (email, { rejectWithValue, dispatch, signal }) => {
         try {
-            const data = await sendFriendRequestAPI(email)
+            const data = await sendFriendRequestAPI(email, { signal })
             // Fetch sent requests after sending
-            dispatch(fetchSentFriendRequests())
+            dispatch(fetchSentFriendRequests(true))
             return data
         } catch (error) {
+            if (error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') {
+                return rejectWithValue({ isCanceled: true })
+            }
             return rejectWithValue(getErrorMessage(error, 'Failed to send friend request'))
         }
     }
@@ -92,13 +98,16 @@ export const sendFriendRequest = createAsyncThunk(
 // 6. Accept Friend Request ka thunk
 export const acceptFriendRequest = createAsyncThunk(
     'friends/acceptFriendRequest',
-    async (requestId, { rejectWithValue, dispatch }) => {
+    async (requestId, { rejectWithValue, dispatch, signal }) => {
         try {
-            const data = await acceptFriendRequestAPI(requestId)
+            const data = await acceptFriendRequestAPI(requestId, { signal })
             // Request accept hone ke baad friends list refresh karein
-            dispatch(fetchFriends())
+            dispatch(fetchFriends(true))
             return { requestId, data }
         } catch (error) {
+            if (error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') {
+                return rejectWithValue({ isCanceled: true })
+            }
             return rejectWithValue(getErrorMessage(error, 'Failed to accept friend request'))
         }
     }
@@ -107,11 +116,14 @@ export const acceptFriendRequest = createAsyncThunk(
 // 7. Reject Friend Request ka thunk
 export const rejectFriendRequest = createAsyncThunk(
     'friends/rejectFriendRequest',
-    async (requestId, { rejectWithValue }) => {
+    async (requestId, { rejectWithValue, signal }) => {
         try {
-            const data = await rejectFriendRequestAPI(requestId)
+            const data = await rejectFriendRequestAPI(requestId, { signal })
             return { requestId, data }
         } catch (error) {
+            if (error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') {
+                return rejectWithValue({ isCanceled: true })
+            }
             return rejectWithValue(getErrorMessage(error, 'Failed to reject friend request'))
         }
     }
@@ -120,11 +132,14 @@ export const rejectFriendRequest = createAsyncThunk(
 // 8. Cancel Sent Request ka thunk
 export const cancelFriendRequest = createAsyncThunk(
     'friends/cancelFriendRequest',
-    async (requestId, { rejectWithValue }) => {
+    async (requestId, { rejectWithValue, signal }) => {
         try {
-            const data = await cancelFriendRequestAPI(requestId)
+            const data = await cancelFriendRequestAPI(requestId, { signal })
             return { requestId, data }
         } catch (error) {
+            if (error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') {
+                return rejectWithValue({ isCanceled: true })
+            }
             return rejectWithValue(getErrorMessage(error, 'Failed to cancel friend request'))
         }
     }
@@ -171,10 +186,12 @@ const friendSlice = createSlice({
             })
             .addCase(fetchFriends.rejected, (state, action) => {
                 state.status = 'failed'
-                state.error =
-                    typeof action.payload === 'string'
-                        ? action.payload
-                        : action.payload?.message || 'Failed to load friends'
+                if (!action.payload?.isCanceled && !action.meta?.aborted) {
+                    state.error =
+                        typeof action.payload === 'string'
+                            ? action.payload
+                            : action.payload?.message || 'Failed to load friends'
+                }
             })
 
             // Fetch Received Friend Requests
@@ -187,8 +204,10 @@ const friendSlice = createSlice({
                     ? action.payload
                     : action.payload?.requests || []
             })
-            .addCase(fetchFriendRequests.rejected, (state) => {
-                state.requestStatus = 'failed'
+            .addCase(fetchFriendRequests.rejected, (state, action) => {
+                if (!action.payload?.isCanceled && !action.meta?.aborted) {
+                    state.requestStatus = 'failed'
+                }
             })
 
             // Fetch Sent Friend Requests
@@ -201,8 +220,10 @@ const friendSlice = createSlice({
                     ? action.payload
                     : action.payload?.requests || []
             })
-            .addCase(fetchSentFriendRequests.rejected, (state) => {
-                state.sentStatus = 'failed'
+            .addCase(fetchSentFriendRequests.rejected, (state, action) => {
+                if (!action.payload?.isCanceled && !action.meta?.aborted) {
+                    state.sentStatus = 'failed'
+                }
             })
 
             // Accept Friend Request

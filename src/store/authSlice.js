@@ -1,11 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 
-import {
-    signupAPI,
-    loginAPI,
-    googleLoginAPI,
-    logoutAPI,
-} from './authAPI'
+import { signupAPI, loginAPI, googleLoginAPI, logoutAPI } from './authAPI'
 
 // Get saved user from LocalStorage
 const getSavedUser = () => {
@@ -13,7 +8,6 @@ const getSavedUser = () => {
         const saved = localStorage.getItem('user')
         return saved ? JSON.parse(saved) : null
     } catch {
-        localStorage.removeItem('user')
         return null
     }
 }
@@ -22,7 +16,7 @@ const savedUser = getSavedUser()
 
 const initialState = {
     user: savedUser,
-    isAuthenticated: !!savedUser,
+    isAuthenticated: Boolean(savedUser),
 
     isCheckingAuth: false,
     isLoading: false,
@@ -35,10 +29,13 @@ const initialState = {
 // SIGNUP
 export const signupUser = createAsyncThunk(
     'auth/signup',
-    async (userData, { rejectWithValue }) => {
+    async (userData, { rejectWithValue, signal }) => {
         try {
-            return await signupAPI(userData)
+            return await signupAPI(userData, { signal })
         } catch (error) {
+            if (error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') {
+                return rejectWithValue({ isCanceled: true })
+            }
             return rejectWithValue(
                 error.response?.data?.message ||
                 'Registration failed. Please try again.'
@@ -50,9 +47,9 @@ export const signupUser = createAsyncThunk(
 // NORMAL LOGIN
 export const loginUser = createAsyncThunk(
     'auth/login',
-    async (credentials, { rejectWithValue }) => {
+    async (credentials, { rejectWithValue, signal }) => {
         try {
-            const response = await loginAPI(credentials)
+            const response = await loginAPI(credentials, { signal })
 
             const user = response?.user || response
             const token = response?.token
@@ -72,6 +69,9 @@ export const loginUser = createAsyncThunk(
             return response
 
         } catch (error) {
+            if (error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') {
+                return rejectWithValue({ isCanceled: true })
+            }
             return rejectWithValue(
                 error.response?.data?.message ||
                 'Invalid email or password.'
@@ -83,9 +83,9 @@ export const loginUser = createAsyncThunk(
 // GOOGLE LOGIN
 export const googleLoginUser = createAsyncThunk(
     'auth/googleLogin',
-    async (credential, { rejectWithValue }) => {
+    async (credential, { rejectWithValue, signal }) => {
         try {
-            const response = await googleLoginAPI(credential)
+            const response = await googleLoginAPI(credential, { signal })
 
             const user = response?.user || response
             const token = response?.token
@@ -105,6 +105,9 @@ export const googleLoginUser = createAsyncThunk(
             return response
 
         } catch (error) {
+            if (error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') {
+                return rejectWithValue({ isCanceled: true })
+            }
             return rejectWithValue(
                 error.response?.data?.message ||
                 'Google login failed. Please try again.'
@@ -116,10 +119,13 @@ export const googleLoginUser = createAsyncThunk(
 // LOGOUT
 export const logoutUser = createAsyncThunk(
     'auth/logout',
-    async (_, { rejectWithValue }) => {
+    async (_, { rejectWithValue, signal }) => {
         try {
-            return await logoutAPI()
+            return await logoutAPI({ signal })
         } catch (error) {
+            if (error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') {
+                return rejectWithValue({ isCanceled: true })
+            }
             return rejectWithValue(
                 error.response?.data?.message ||
                 'Logout failed. Please try again.'
@@ -176,7 +182,9 @@ const authSlice = createSlice({
 
             .addCase(signupUser.rejected, (state, action) => {
                 state.isLoading = false
-                state.error = action.payload
+                if (!action.payload?.isCanceled && !action.meta?.aborted) {
+                    state.error = action.payload
+                }
             })
 
             // LOGIN
@@ -194,7 +202,9 @@ const authSlice = createSlice({
 
             .addCase(loginUser.rejected, (state, action) => {
                 state.isLoading = false
-                state.error = action.payload
+                if (!action.payload?.isCanceled && !action.meta?.aborted) {
+                    state.error = action.payload
+                }
             })
 
             // GOOGLE LOGIN
@@ -212,7 +222,9 @@ const authSlice = createSlice({
 
             .addCase(googleLoginUser.rejected, (state, action) => {
                 state.isLoading = false
-                state.error = action.payload
+                if (!action.payload?.isCanceled && !action.meta?.aborted) {
+                    state.error = action.payload
+                }
             })
 
             // LOGOUT
@@ -233,7 +245,9 @@ const authSlice = createSlice({
                 state.isLoggingOut = false
                 state.user = null
                 state.isAuthenticated = false
-                state.error = action.payload
+                if (!action.payload?.isCanceled && !action.meta?.aborted) {
+                    state.error = action.payload
+                }
                 state.signupMessage = null
             })
     },

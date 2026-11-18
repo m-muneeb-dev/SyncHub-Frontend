@@ -1,10 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
-import {
-    getSharedTasksAPI,
-    shareTaskAPI,
-    updateSharedTaskStatusAPI,
-    deleteSharedTaskAPI,
-} from './sharedTaskAPI'
+import { getSharedTasksAPI, shareTaskAPI, updateSharedTaskStatusAPI, deleteSharedTaskAPI } from './sharedTaskAPI'
 
 // Helper to extract clean error message
 const getErrorMessage = (error, defaultMsg) => {
@@ -21,11 +16,14 @@ const getErrorMessage = (error, defaultMsg) => {
 // 1. Fetch tasks shared WITH logged-in user
 export const fetchReceivedSharedTasks = createAsyncThunk(
     'sharedTasks/fetchReceived',
-    async (_, { rejectWithValue }) => {
+    async (_, { rejectWithValue, signal }) => {
         try {
-            const res = await getSharedTasksAPI()
+            const res = await getSharedTasksAPI(undefined, { signal })
             return res.data || []
         } catch (error) {
+            if (error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') {
+                return rejectWithValue({ isCanceled: true })
+            }
             return rejectWithValue(getErrorMessage(error, 'Failed to fetch shared tasks'))
         }
     }
@@ -34,11 +32,14 @@ export const fetchReceivedSharedTasks = createAsyncThunk(
 // 2. Fetch tasks shared BY logged-in user
 export const fetchSentSharedTasks = createAsyncThunk(
     'sharedTasks/fetchSent',
-    async (_, { rejectWithValue }) => {
+    async (_, { rejectWithValue, signal }) => {
         try {
-            const res = await getSharedTasksAPI('sent')
+            const res = await getSharedTasksAPI('sent', { signal })
             return res.data || []
         } catch (error) {
+            if (error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') {
+                return rejectWithValue({ isCanceled: true })
+            }
             return rejectWithValue(getErrorMessage(error, 'Failed to fetch sent shared tasks'))
         }
     }
@@ -59,16 +60,22 @@ export const fetchAllSharedTasks = createAsyncThunk(
     }
 )
 
-// 4. Share task with a collaborator
+// 4. Share task with a collaborator (Supports single or multiple tasks)
 export const shareTask = createAsyncThunk(
     'sharedTasks/shareTask',
-    async ({ task_id, collaborator, status }, { rejectWithValue, dispatch }) => {
+    async ({ task_id, task_ids, collaborator, status }, { rejectWithValue, dispatch, signal }) => {
         try {
-            const res = await shareTaskAPI({ task_id, collaborator, status })
+            const res = await shareTaskAPI({ task_id, task_ids, collaborator, status }, { signal })
             // Refresh sent tasks after sharing
-            dispatch(fetchSentSharedTasks())
-            return res.data
+            dispatch(fetchSentSharedTasks(true))
+            return {
+                data: res.data,
+                message: res.message
+            }
         } catch (error) {
+            if (error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') {
+                return rejectWithValue({ isCanceled: true })
+            }
             return rejectWithValue(getErrorMessage(error, 'Failed to share task'))
         }
     }
@@ -77,11 +84,14 @@ export const shareTask = createAsyncThunk(
 // 5. Update shared task status (pending | in-progress | completed)
 export const updateSharedTaskStatus = createAsyncThunk(
     'sharedTasks/updateStatus',
-    async ({ id, status }, { rejectWithValue }) => {
+    async ({ id, status }, { rejectWithValue, signal }) => {
         try {
-            const res = await updateSharedTaskStatusAPI(id, status)
+            const res = await updateSharedTaskStatusAPI(id, status, { signal })
             return { id, status, updatedTask: res.data }
         } catch (error) {
+            if (error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') {
+                return rejectWithValue({ isCanceled: true })
+            }
             return rejectWithValue({
                 id,
                 message: getErrorMessage(error, 'Failed to update shared task status'),
@@ -93,11 +103,14 @@ export const updateSharedTaskStatus = createAsyncThunk(
 // 6. Delete / unshare shared task
 export const deleteSharedTask = createAsyncThunk(
     'sharedTasks/deleteSharedTask',
-    async (id, { rejectWithValue }) => {
+    async (id, { rejectWithValue, signal }) => {
         try {
-            await deleteSharedTaskAPI(id)
+            await deleteSharedTaskAPI(id, { signal })
             return id
         } catch (error) {
+            if (error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') {
+                return rejectWithValue({ isCanceled: true })
+            }
             return rejectWithValue({
                 id,
                 message: getErrorMessage(error, 'Failed to remove shared task'),
@@ -163,7 +176,9 @@ const sharedTaskSlice = createSlice({
             })
             .addCase(fetchReceivedSharedTasks.rejected, (state, action) => {
                 state.isLoadingReceived = false
-                state.error = action.payload
+                if (!action.payload?.isCanceled && !action.meta?.aborted) {
+                    state.error = action.payload
+                }
             })
 
             // Fetch Sent
@@ -177,7 +192,9 @@ const sharedTaskSlice = createSlice({
             })
             .addCase(fetchSentSharedTasks.rejected, (state, action) => {
                 state.isLoadingSent = false
-                state.error = action.payload
+                if (!action.payload?.isCanceled && !action.meta?.aborted) {
+                    state.error = action.payload
+                }
             })
 
             // Share Task
@@ -190,16 +207,26 @@ const sharedTaskSlice = createSlice({
                 state.isSharing = false
                 state.shareSuccess = true
                 state.shareError = null
-                if (action.payload) {
-                    const exists = state.sent.some((item) => item._id === action.payload._id)
+                const payloadData = action.payload?.data !== undefined ? action.payload.data : action.payload
+                if (Array.isArray(payloadData)) {
+                    payloadData.forEach((item) => {
+                        if (item && item._id) {
+                            const exists = state.sent.some((s) => s._id === item._id)
+                            if (!exists) {
+                                state.sent.unshift(item)
+                            }
+                        }
+                    })
+                } else if (payloadData && payloadData._id) {
+                    const exists = state.sent.some((item) => item._id === payloadData._id)
                     if (!exists) {
-                        state.sent.unshift(action.payload)
+                        state.sent.unshift(payloadData)
                     }
                 }
                 state.toast = {
                     id: Date.now(),
                     type: 'success',
-                    message: 'Task shared successfully.',
+                    message: action.payload?.message || 'Task(s) shared successfully.',
                 }
             })
             .addCase(shareTask.rejected, (state, action) => {
@@ -254,9 +281,11 @@ const sharedTaskSlice = createSlice({
             // Delete / Unshare
             .addCase(deleteSharedTask.pending, (state, action) => {
                 state.deletingId = action.meta.arg
+                state.error = null
             })
             .addCase(deleteSharedTask.fulfilled, (state, action) => {
                 state.deletingId = null
+                state.error = null
                 const id = action.payload
                 state.received = state.received.filter((item) => item._id !== id)
                 state.sent = state.sent.filter((item) => item._id !== id)
@@ -268,10 +297,12 @@ const sharedTaskSlice = createSlice({
             })
             .addCase(deleteSharedTask.rejected, (state, action) => {
                 state.deletingId = null
+                const errorMsg = action.payload?.message || 'Failed to remove shared task'
+                state.error = errorMsg
                 state.toast = {
                     id: Date.now(),
                     type: 'error',
-                    message: action.payload?.message || 'Failed to remove shared task',
+                    message: errorMsg,
                 }
             })
     },

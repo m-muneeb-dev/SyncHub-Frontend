@@ -1,15 +1,29 @@
 import { useState, useRef, useEffect } from 'react'
+import { useSelector } from 'react-redux'
 import { Calendar, ChevronDown, Check, Loader2, Trash2 } from 'lucide-react'
 import { getUserInitials } from '../../utils/userUtils'
 
 export default function SharedTaskCard({
     sharedTask,
     type = 'received', // 'received' | 'sent'
+    isOwner: isOwnerProp,
     onStatusChange,
     onDelete,
     isUpdating = false,
     isDeleting = false,
 }) {
+    const { user } = useSelector((state) => state.auth)
+    const currentUserId = user?.id || user?._id
+    const sharedByUserId = sharedTask?.shared_by?._id || sharedTask?.shared_by
+    const isOwner =
+        isOwnerProp !== undefined
+            ? isOwnerProp
+            : Boolean(
+                  currentUserId &&
+                  sharedByUserId &&
+                  String(sharedByUserId) === String(currentUserId)
+              )
+
     const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false)
     const dropdownRef = useRef(null)
 
@@ -134,21 +148,23 @@ export default function SharedTaskCard({
                         )}
                     </div>
 
-                    {/* Unshare / Delete Action Button */}
-                    <button
-                        type="button"
-                        onClick={() => onDelete?.(sharedTask)}
-                        disabled={isDeleting}
-                        title="Unshare task"
-                        aria-label="Unshare task"
-                        className="cursor-pointer flex h-7 w-7 items-center justify-center rounded-[6px] !text-[#9297a0] hover:bg-[#aa2d00]/10 hover:!text-[#aa2d00] border border-transparent hover:border-[#aa2d00]/25 transition-colors disabled:opacity-50"
-                    >
-                        {isDeleting ? (
-                            <Loader2 size={13} className="animate-spin !text-[#aa2d00]" />
-                        ) : (
-                            <Trash2 size={14} />
-                        )}
-                    </button>
+                    {/* Unshare / Delete Action Button (Visible only to original task owner/sharer) */}
+                    {isOwner && (
+                        <button
+                            type="button"
+                            onClick={() => onDelete?.(sharedTask)}
+                            disabled={isDeleting}
+                            title="Unshare task"
+                            aria-label="Unshare task"
+                            className="cursor-pointer flex h-7 w-7 items-center justify-center rounded-[6px] !text-[#9297a0] hover:bg-[#aa2d00]/10 hover:!text-[#aa2d00] border border-transparent hover:border-[#aa2d00]/25 transition-colors disabled:opacity-50"
+                        >
+                            {isDeleting ? (
+                                <Loader2 size={13} className="animate-spin !text-[#aa2d00]" />
+                            ) : (
+                                <Trash2 size={14} />
+                            )}
+                        </button>
+                    )}
                 </div>
 
                 {/* Task Title & Description */}

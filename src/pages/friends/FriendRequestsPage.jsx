@@ -7,6 +7,7 @@ import {
   UserCheck,
   Inbox,
   Send,
+  UserPlus,
 } from "lucide-react";
 import {
   fetchFriendRequests,
@@ -17,6 +18,7 @@ import {
 } from "../../store/friendSlice";
 import FriendRequestCard from "../../components/friendComponents/FriendRequestCard";
 import SentInvitationCard from "../../components/friendComponents/SentInvitationCard";
+import ConnectFriendModal from "../../components/friendComponents/ConnectFriendModal";
 
 export default function FriendRequestsPage() {
   const dispatch = useDispatch();
@@ -33,11 +35,24 @@ export default function FriendRequestsPage() {
   // 2. Local State
   const [activeTab, setActiveTab] = useState("received"); // 'received' | 'sent'
   const [actionFeedback, setActionFeedback] = useState(null);
+  const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
 
-  // 3. Fetch both received and sent requests on mount
+  // 3. Optimized Caching (Option B): Fetch received and sent requests if not in Redux
   useEffect(() => {
-    dispatch(fetchFriendRequests());
-    dispatch(fetchSentFriendRequests());
+    let receivedPromise = null;
+    let sentPromise = null;
+
+    if (requests.length === 0) {
+      receivedPromise = dispatch(fetchFriendRequests());
+    }
+    if (sentRequests.length === 0) {
+      sentPromise = dispatch(fetchSentFriendRequests());
+    }
+
+    return () => {
+      receivedPromise?.abort();
+      sentPromise?.abort();
+    };
   }, [dispatch]);
 
   // Auto-dismiss feedback message after 4s
@@ -103,23 +118,35 @@ export default function FriendRequestsPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-6 pb-12 text-[#181d26]">
       {/* Top Heading */}
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight text-[#181d26]">
-          Friend Requests
-        </h1>
-        <p className="mt-1 !text-xs text-[#41454d]">
-          {activeTab === "received"
-            ? pendingCount === 0
-              ? "You have no pending invitations."
-              : `You have ${pendingCount} pending ${
-                  pendingCount === 1 ? "invitation" : "invitations"
-                } waiting for your response.`
-            : sentCount === 0
-              ? "You have not sent any pending invitations."
-              : `You have sent ${sentCount} ${
-                  sentCount === 1 ? "invitation" : "invitations"
-                } awaiting response.`}
-        </p>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="!text-lg sm:!text-xl font-semibold tracking-tight text-[#181d26] truncate">
+            Friend Requests
+          </h1>
+          <p className="mt-0.5 !text-xs text-[#41454d] truncate hidden xs:block sm:block">
+            {activeTab === "received"
+              ? pendingCount === 0
+                ? "You have no pending invitations."
+                : `You have ${pendingCount} pending ${
+                    pendingCount === 1 ? "invitation" : "invitations"
+                  } waiting for your response.`
+              : sentCount === 0
+                ? "You have not sent any pending invitations."
+                : `You have sent ${sentCount} ${
+                    sentCount === 1 ? "invitation" : "invitations"
+                  } awaiting response.`}
+          </p>
+        </div>
+
+        {/* Action Button */}
+        <button
+          type="button"
+          onClick={() => setIsConnectModalOpen(true)}
+          className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-[8px] sm:rounded-[10px] bg-[#181d26] px-3 py-1.5 sm:px-4 sm:py-2 !text-xs font-medium text-white shadow-xs transition-colors hover:bg-[#0d1218] active:bg-[#0d1218]"
+        >
+          <UserPlus size={14} />
+          <span>Connect Friend</span>
+        </button>
       </div>
 
       {/* Segmented Control / Tabs */}
@@ -289,6 +316,14 @@ export default function FriendRequestsPage() {
                 You haven't sent any friend requests yet, or all your requests
                 have been accepted.
               </p>
+              <button
+                type="button"
+                onClick={() => setIsConnectModalOpen(true)}
+                className="mt-3.5 inline-flex items-center gap-1.5 rounded-[8px] bg-[#181d26] px-3.5 py-1.5 !text-xs font-medium text-white hover:bg-[#0d1218] transition-colors shadow-xs cursor-pointer"
+              >
+                <UserPlus size={13} />
+                <span>Send an Invitation</span>
+              </button>
             </div>
           ) : (
             <div className="divide-y divide-[#dddddd]">
@@ -310,6 +345,12 @@ export default function FriendRequestsPage() {
           )}
         </div>
       )}
+
+      {/* Connect Friend Modal */}
+      <ConnectFriendModal
+        isOpen={isConnectModalOpen}
+        onClose={() => setIsConnectModalOpen(false)}
+      />
     </div>
   );
 }

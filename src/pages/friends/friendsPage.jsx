@@ -35,10 +35,22 @@ export default function FriendsPage() {
     const [isConnectModalOpen, setIsConnectModalOpen] = useState(false)
     const [friendToRemove, setFriendToRemove] = useState(null)
 
-    // 3. Fetch data on mount if not already loaded
+    // 3. Optimized Caching (Option B): Fetch data on mount if not already in Redux
     useEffect(() => {
-        dispatch(fetchFriends())
-        dispatch(fetchFriendRequests())
+        let friendsPromise = null
+        let requestsPromise = null
+
+        if (friends.length === 0) {
+            friendsPromise = dispatch(fetchFriends())
+        }
+        if (requests.length === 0) {
+            requestsPromise = dispatch(fetchFriendRequests())
+        }
+
+        return () => {
+            friendsPromise?.abort()
+            requestsPromise?.abort()
+        }
     }, [dispatch])
 
     // 4. Remove Friend submission
@@ -70,12 +82,12 @@ export default function FriendsPage() {
         <div className="mx-auto max-w-7xl space-y-6 pb-12 text-[#181d26]">
             {/* Top Breadcrumb & Title Section */}
             <div>
-                <div className="mt-2 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-                    <div>
-                        <h1 className="!text-xl font-semibold tracking-tight text-[#181d26]">
+                <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                        <h1 className="!text-lg sm:!text-xl font-semibold tracking-tight text-[#181d26] truncate">
                             Friends
                         </h1>
-                        <p className="mt-0.5 !text-xs text-[#41454d]">
+                        <p className="mt-0.5 !text-xs text-[#41454d] truncate hidden xs:block sm:block">
                             {friends.length} connected {friends.length === 1 ? 'friend' : 'friends'} in your network
                         </p>
                     </div>
@@ -84,10 +96,10 @@ export default function FriendsPage() {
                     <button
                         type="button"
                         onClick={() => setIsConnectModalOpen(true)}
-                        className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-[10px] bg-[#181d26] px-4 py-2 !text-xs font-medium text-white shadow-xs transition-colors hover:bg-[#0d1218] active:bg-[#0d1218]"
+                        className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-[8px] sm:rounded-[10px] bg-[#181d26] px-3 py-1.5 sm:px-4 sm:py-2 !text-xs font-medium text-white shadow-xs transition-colors hover:bg-[#0d1218] active:bg-[#0d1218]"
                     >
                         <UserPlus size={14} />
-                        Connect Friend
+                        <span>Connect Friend</span>
                     </button>
                 </div>
             </div>

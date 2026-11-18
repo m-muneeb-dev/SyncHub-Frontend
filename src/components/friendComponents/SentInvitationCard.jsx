@@ -37,19 +37,19 @@ export default function SentInvitationCard({
     const timeAgo = formatRelativeTime(request.createdAt)
 
     return (
-        <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between transition-colors hover:bg-[#f8fafc]">
+        <div className="flex items-center justify-between gap-3 p-3.5 sm:p-4 transition-colors hover:bg-[#f8fafc]">
             {/* Left: Avatar + Details */}
-            <div className="flex items-center gap-3 min-w-0">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] border border-[#dddddd] bg-[#f8fafc] !text-xs !font-medium !text-[#181d26]">
+            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+                <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-[8px] border border-[#dddddd] bg-[#f8fafc] !text-xs !font-medium !text-[#181d26]">
                     {initials}
                 </div>
 
-                <div className="min-w-0">
-                    <div className="flex items-center gap-2">
+                <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 sm:gap-2">
                         <h3 className="!truncate !text-xs !font-medium !text-[#181d26] !leading-tight">
                             {name}
                         </h3>
-                        <span className="inline-flex items-center rounded-[4px] bg-[#d9a441]/15 border border-[#d9a441]/35 px-1.5 py-0.5 !text-[10px] !font-medium !text-[#91650c]">
+                        <span className="inline-flex shrink-0 items-center rounded-[4px] bg-[#d9a441]/15 border border-[#d9a441]/35 px-1.5 py-0.5 !text-[10px] !font-medium !text-[#91650c]">
                             Pending
                         </span>
                     </div>
@@ -58,20 +58,20 @@ export default function SentInvitationCard({
                         {email}
                     </p>
 
-                    <div className="flex items-center gap-1.5 !text-[10px] !text-[#41454d] mt-1">
+                    <div className="flex items-center gap-1.5 !text-[10px] !text-[#41454d] mt-0.5 sm:mt-1">
                         <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#9297a0]" />
                         <span>{timeAgo}</span>
                     </div>
                 </div>
             </div>
 
-            {/* Right: Cancel Invitation Button */}
-            <div className="flex items-center gap-2 self-end sm:self-center">
+            {/* Right: Cancel Invitation Button (Always flexed beside details) */}
+            <div className="shrink-0">
                 <button
                     type="button"
                     disabled={isLoading}
                     onClick={onCancel}
-                    className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-[6px] border border-[#dddddd] bg-white px-3 py-1.5 !text-xs !font-normal !text-[#aa2d00] transition-colors hover:border-[#aa2d00]/30 hover:bg-[#aa2d00]/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="inline-flex cursor-pointer items-center justify-center gap-1 rounded-[6px] border border-[#dddddd] bg-white px-2.5 py-1.5 sm:px-3 !text-xs !font-normal !text-[#aa2d00] transition-colors hover:border-[#aa2d00]/30 hover:bg-[#aa2d00]/10 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     {isLoading ? (
                         <>
@@ -81,7 +81,8 @@ export default function SentInvitationCard({
                     ) : (
                         <>
                             <X size={12} />
-                            <span>Cancel Invitation</span>
+                            <span className="hidden xs:inline sm:inline">Cancel Invitation</span>
+                            <span className="inline xs:hidden sm:hidden">Cancel</span>
                         </>
                     )}
                 </button>

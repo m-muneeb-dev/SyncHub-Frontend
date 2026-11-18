@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Trash2, X, Loader2 } from 'lucide-react'
 
 export default function DeleteTaskModal({
@@ -9,6 +9,12 @@ export default function DeleteTaskModal({
     isDeleting = false,
 }) {
     const [isChecked, setIsChecked] = useState(false)
+
+    useEffect(() => {
+        if (isOpen) {
+            setIsChecked(false)
+        }
+    }, [isOpen, task])
 
     if (!isOpen || !task) return null
 
@@ -21,6 +27,7 @@ export default function DeleteTaskModal({
     const handleConfirm = () => {
         if (isChecked) {
             onConfirm()
+            setIsChecked(false)
         }
     }
 

@@ -260,7 +260,7 @@ export default function CreateTask({ isOpen = true, onClose }) {
 
               {/* DatePicker UI pops up above the input to avoid modal cutoff */}
               {isDatePickerOpen && (
-                <div className="absolute right-0 bottom-full mb-2 z-50 shadow-xl">
+                <div className="absolute right-0 bottom-full mb-2 z-50 shadow-xl w-[260px]">
                   <DatePicker value={dueDate} onChange={handleDateSelect} />
                 </div>
               )}

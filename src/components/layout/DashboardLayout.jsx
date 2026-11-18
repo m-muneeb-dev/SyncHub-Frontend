@@ -1,20 +1,16 @@
-import { useState, useEffect } from 'react'
-import { useSelector, useDispatch } from 'react-redux'
+import { useState } from 'react'
+import { useSelector } from 'react-redux'
 import { useNavigate, useLocation, Outlet } from 'react-router-dom'
 
 import Sidebar from './Sidebar.jsx'
 import Header from './Header.jsx'
 import Logout from '../../features/auth/logout.jsx'
-import Toast from '../common/Toast.jsx'
 import { getUserInitials } from '../../utils/userUtils'
-import { fetchTasks } from '../../store/taskSlice.js'
-import { fetchFriends, fetchFriendRequests } from '../../store/friendSlice.js'
-import { fetchReceivedSharedTasks, fetchSentSharedTasks } from '../../store/sharedTaskSlice.js'
 
 export default function DashboardLayout() {
-    const dispatch = useDispatch()
     const [showLogout, setShowLogout] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
+    const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
 
     const navigate = useNavigate()
     const location = useLocation()
@@ -23,15 +19,6 @@ export default function DashboardLayout() {
 
     const userName = user?.name || 'User'
     const userInitials = getUserInitials(userName) || 'U'
-
-    // Fetch tasks, friends, friend requests, and shared tasks globally for real-time sidebar badges
-    useEffect(() => {
-        dispatch(fetchTasks())
-        dispatch(fetchFriends())
-        dispatch(fetchFriendRequests())
-        dispatch(fetchReceivedSharedTasks())
-        dispatch(fetchSentSharedTasks())
-    }, [dispatch])
 
     // Current URL determines the active sidebar item
     const getActiveItem = (pathname) => {
@@ -73,6 +60,8 @@ export default function DashboardLayout() {
                 onLogout={() => setShowLogout(true)}
                 user={user}
                 userInitial={userInitials}
+                mobileOpen={mobileSidebarOpen}
+                setMobileOpen={setMobileSidebarOpen}
             />
 
             <main className="flex min-w-0 flex-1 flex-col bg-white">
@@ -83,10 +72,11 @@ export default function DashboardLayout() {
                     onSearch={setSearchQuery}
                     onNotifications={() => console.log('Notifications')}
                     onProfileClick={() => console.log('Profile')}
+                    onMenuClick={() => setMobileSidebarOpen(true)}
                     userInitial={userInitials}
                 />
 
-                <div className="flex-1 p-6 lg:p-8">
+                <div className="flex-1 p-3.5 sm:p-6 lg:p-8">
                     <Outlet />
                 </div>
 
@@ -96,8 +86,6 @@ export default function DashboardLayout() {
                 open={showLogout}
                 onClose={() => setShowLogout(false)}
             />
-
-            <Toast />
 
         </div>
     )

@@ -54,9 +54,9 @@ export default function DatePicker({ value, onChange }) {
     }
 
     return (
-        <div className="w-[280px] rounded-[12px] border border-[#dddddd] bg-white p-3 shadow-xl !text-[#181d26]">
+        <div className="w-full max-w-[260px] rounded-[12px] border border-[#dddddd] bg-white p-2.5 shadow-2xl !text-[#181d26]">
 
-            <div className="mb-2.5 flex items-center justify-between px-1">
+            <div className="mb-2 flex items-center justify-between px-1">
 
                 <button
                     type="button"

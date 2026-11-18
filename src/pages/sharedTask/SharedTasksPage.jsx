@@ -1,24 +1,7 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
-import {
-    Share2,
-    Search,
-    Plus,
-    Loader2,
-    Inbox,
-    Send,
-    CheckCircle2,
-    Clock,
-    AlertCircle,
-} from 'lucide-react'
-import {
-    fetchReceivedSharedTasks,
-    fetchSentSharedTasks,
-    updateSharedTaskStatus,
-    deleteSharedTask,
-} from '../../store/sharedTaskSlice'
-import { fetchFriends } from '../../store/friendSlice'
-import { fetchTasks } from '../../store/taskSlice'
+import { Share2, Search, Plus, Loader2, Inbox, Send, CheckCircle2, Clock, AlertCircle, ChevronDown } from 'lucide-react'
+import { fetchReceivedSharedTasks, fetchSentSharedTasks, updateSharedTaskStatus, deleteSharedTask } from '../../store/sharedTaskSlice'
 import SharedTaskCard from '../../components/sharedTaskComponents/SharedTaskCard'
 import ShareTaskModal from '../../components/sharedTaskComponents/ShareTaskModal'
 import UnshareConfirmModal from '../../components/sharedTaskComponents/UnshareConfirmModal'
@@ -27,6 +10,9 @@ export default function SharedTasksPage() {
     const dispatch = useDispatch()
 
     // Redux state
+    const { user } = useSelector((state) => state.auth)
+    const currentUserId = user?.id || user?._id
+
     const {
         received = [],
         sent = [],
@@ -42,17 +28,47 @@ export default function SharedTasksPage() {
     const [searchQuery, setSearchQuery] = useState('')
     const [statusFilter, setStatusFilter] = useState('all') // 'all' | 'pending' | 'in-progress' | 'completed'
     const [priorityFilter, setPriorityFilter] = useState('all') // 'all' | 'high' | 'medium' | 'low'
+    const [isPriorityDropdownOpen, setIsPriorityDropdownOpen] = useState(false)
+    const priorityDropdownRef = useRef(null)
+
+    // Close priority dropdown on outside click
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (priorityDropdownRef.current && !priorityDropdownRef.current.contains(e.target)) {
+                setIsPriorityDropdownOpen(false)
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside)
+        return () => document.removeEventListener('mousedown', handleClickOutside)
+    }, [])
+
+    const priorityOptions = [
+        { id: 'all', label: 'All Priorities' },
+        { id: 'high', label: 'High Priority', dot: 'bg-[#aa2d00]' },
+        { id: 'medium', label: 'Medium Priority', dot: 'bg-[#d9a441]' },
+        { id: 'low', label: 'Low Priority', dot: 'bg-[#9297a0]' },
+    ]
 
     // Modal states
     const [isShareModalOpen, setIsShareModalOpen] = useState(false)
     const [taskToUnshare, setTaskToUnshare] = useState(null)
 
-    // Fetch initial data
+    // Fetch initial data with Optimized Caching (Option B)
     useEffect(() => {
-        dispatch(fetchReceivedSharedTasks())
-        dispatch(fetchSentSharedTasks())
-        dispatch(fetchFriends())
-        dispatch(fetchTasks())
+        let receivedPromise = null
+        let sentPromise = null
+
+        if (received.length === 0) {
+            receivedPromise = dispatch(fetchReceivedSharedTasks())
+        }
+        if (sent.length === 0) {
+            sentPromise = dispatch(fetchSentSharedTasks())
+        }
+
+        return () => {
+            receivedPromise?.abort()
+            sentPromise?.abort()
+        }
     }, [dispatch])
 
     // Current tab items
@@ -95,11 +111,19 @@ export default function SharedTasksPage() {
     // Delete / unshare confirmation handler
     const handleConfirmUnshare = async () => {
         if (!taskToUnshare) return
+
+        const sharedById = taskToUnshare?.shared_by?._id || taskToUnshare?.shared_by
+        if (currentUserId && sharedById && String(sharedById) !== String(currentUserId)) {
+            setTaskToUnshare(null)
+            return
+        }
+
         try {
             await dispatch(deleteSharedTask(taskToUnshare._id)).unwrap()
-            setTaskToUnshare(null)
         } catch {
             // Error handled via Redux toast
+        } finally {
+            setTaskToUnshare(null)
         }
     }
 
@@ -117,12 +141,12 @@ export default function SharedTasksPage() {
     return (
         <div className="mx-auto max-w-7xl space-y-6 pb-12 text-[#181d26]">
             {/* Top Heading & Actions */}
-            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-                <div>
-                    <h1 className="!text-xl font-semibold tracking-tight text-[#181d26]">
+            <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                    <h1 className="!text-lg sm:!text-xl font-semibold tracking-tight text-[#181d26] truncate">
                         Shared Tasks
                     </h1>
-                    <p className="mt-0.5 !text-xs text-[#41454d]">
+                    <p className="mt-0.5 !text-xs text-[#41454d] truncate hidden xs:block sm:block">
                         Collaborate on shared tasks with accepted friends ({totalCount} total collaborations).
                     </p>
                 </div>
@@ -131,7 +155,7 @@ export default function SharedTasksPage() {
                 <button
                     type="button"
                     onClick={() => setIsShareModalOpen(true)}
-                    className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-[10px] bg-[#181d26] px-4 py-2 !text-xs font-medium text-white shadow-xs transition-colors hover:bg-[#0d1218] active:bg-[#0d1218]"
+                    className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-[8px] sm:rounded-[10px] bg-[#181d26] px-3 py-1.5 sm:px-4 sm:py-2 !text-xs font-medium text-white shadow-xs transition-colors hover:bg-[#0d1218] active:bg-[#0d1218]"
                 >
                     <Plus size={14} />
                     <Share2 size={13} />
@@ -140,49 +164,49 @@ export default function SharedTasksPage() {
             </div>
 
             {/* Quick Metrics Bar */}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <div className="rounded-[12px] border border-[#dddddd] bg-white p-4 shadow-xs transition-colors hover:border-[#9297a0]">
+            <div className="grid grid-cols-2 gap-2.5 sm:gap-3 sm:grid-cols-4">
+                <div className="rounded-[10px] sm:rounded-[12px] border border-[#dddddd] bg-white p-2.5 sm:p-4 shadow-xs transition-colors hover:border-[#9297a0]">
                     <div className="flex items-center justify-between">
-                        <span className="!text-xs text-[#41454d]">Shared with Me</span>
-                        <Inbox size={15} className="text-[#181d26]" />
+                        <span className="text-[11px] sm:text-xs text-[#41454d] truncate">Shared with Me</span>
+                        <Inbox size={14} className="text-[#181d26] shrink-0" />
                     </div>
-                    <p className="mt-2 !text-xl font-medium tracking-tight text-[#181d26] tabular-nums">
+                    <p className="mt-1 sm:mt-2 text-lg sm:text-xl font-medium tracking-tight text-[#181d26] tabular-nums">
                         {receivedCount}
                     </p>
-                    <p className="mt-0.5 !text-[11px] text-[#41454d]">Tasks assigned to you</p>
+                    <p className="mt-0.5 text-[10px] sm:text-[11px] text-[#41454d] truncate hidden sm:block">Tasks assigned to you</p>
                 </div>
 
-                <div className="rounded-[12px] border border-[#dddddd] bg-white p-4 shadow-xs transition-colors hover:border-[#9297a0]">
+                <div className="rounded-[10px] sm:rounded-[12px] border border-[#dddddd] bg-white p-2.5 sm:p-4 shadow-xs transition-colors hover:border-[#9297a0]">
                     <div className="flex items-center justify-between">
-                        <span className="!text-xs text-[#41454d]">Shared by Me</span>
-                        <Send size={15} className="text-[#181d26]" />
+                        <span className="text-[11px] sm:text-xs text-[#41454d] truncate">Shared by Me</span>
+                        <Send size={14} className="text-[#181d26] shrink-0" />
                     </div>
-                    <p className="mt-2 !text-xl font-medium tracking-tight text-[#181d26] tabular-nums">
+                    <p className="mt-1 sm:mt-2 text-lg sm:text-xl font-medium tracking-tight text-[#181d26] tabular-nums">
                         {sentCount}
                     </p>
-                    <p className="mt-0.5 !text-[11px] text-[#41454d]">Tasks sent to friends</p>
+                    <p className="mt-0.5 text-[10px] sm:text-[11px] text-[#41454d] truncate hidden sm:block">Tasks sent to friends</p>
                 </div>
 
-                <div className="rounded-[12px] border border-[#dddddd] bg-white p-4 shadow-xs transition-colors hover:border-[#9297a0]">
+                <div className="rounded-[10px] sm:rounded-[12px] border border-[#dddddd] bg-white p-2.5 sm:p-4 shadow-xs transition-colors hover:border-[#9297a0]">
                     <div className="flex items-center justify-between">
-                        <span className="!text-xs text-[#41454d]">In Progress</span>
-                        <Clock size={15} className="text-[#1b61c9]" />
+                        <span className="text-[11px] sm:text-xs text-[#41454d] truncate">In Progress</span>
+                        <Clock size={14} className="text-[#1b61c9] shrink-0" />
                     </div>
-                    <p className="mt-2 !text-xl font-medium tracking-tight text-[#181d26] tabular-nums">
+                    <p className="mt-1 sm:mt-2 text-lg sm:text-xl font-medium tracking-tight text-[#181d26] tabular-nums">
                         {inProgressCount}
                     </p>
-                    <p className="mt-0.5 !text-[11px] text-[#41454d]">Active collaborations</p>
+                    <p className="mt-0.5 text-[10px] sm:text-[11px] text-[#41454d] truncate hidden sm:block">Active collaborations</p>
                 </div>
 
-                <div className="rounded-[12px] border border-[#dddddd] bg-white p-4 shadow-xs transition-colors hover:border-[#9297a0]">
+                <div className="rounded-[10px] sm:rounded-[12px] border border-[#dddddd] bg-white p-2.5 sm:p-4 shadow-xs transition-colors hover:border-[#9297a0]">
                     <div className="flex items-center justify-between">
-                        <span className="!text-xs text-[#41454d]">Completed</span>
-                        <CheckCircle2 size={15} className="text-[#006400]" />
+                        <span className="text-[11px] sm:text-xs text-[#41454d] truncate">Completed</span>
+                        <CheckCircle2 size={14} className="text-[#006400] shrink-0" />
                     </div>
-                    <p className="mt-2 !text-xl font-medium tracking-tight text-[#181d26] tabular-nums">
+                    <p className="mt-1 sm:mt-2 text-lg sm:text-xl font-medium tracking-tight text-[#181d26] tabular-nums">
                         {completedCount}
                     </p>
-                    <p className="mt-0.5 !text-[11px] text-[#41454d]">Done tasks</p>
+                    <p className="mt-0.5 text-[10px] sm:text-[11px] text-[#41454d] truncate hidden sm:block">Done tasks</p>
                 </div>
             </div>
 
@@ -257,9 +281,9 @@ export default function SharedTasksPage() {
                 </div>
 
                 {/* Filter Controls */}
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1.5 sm:gap-2">
                     {/* Status Filter Dropdown / Pills */}
-                    <div className="flex items-center gap-1 rounded-[8px] border border-[#dddddd] bg-[#f8fafc] p-1">
+                    <div className="flex min-w-0 flex-1 sm:flex-initial items-center gap-0.5 sm:gap-1 overflow-x-auto rounded-[8px] border border-[#dddddd] bg-[#f8fafc] p-1">
                         {[
                             { id: 'all', label: 'All' },
                             { id: 'pending', label: 'Pending' },
@@ -270,7 +294,7 @@ export default function SharedTasksPage() {
                                 key={s.id}
                                 type="button"
                                 onClick={() => setStatusFilter(s.id)}
-                                className={`cursor-pointer rounded-[6px] px-2.5 py-1 !text-xs font-medium transition-colors ${
+                                className={`cursor-pointer whitespace-nowrap rounded-[6px] px-2 sm:px-2.5 py-1 !text-[11px] sm:!text-xs font-medium transition-colors ${
                                     statusFilter === s.id
                                         ? 'bg-white text-[#181d26] shadow-xs border border-[#dddddd]'
                                         : 'text-[#41454d] hover:text-[#181d26]'
@@ -281,17 +305,44 @@ export default function SharedTasksPage() {
                         ))}
                     </div>
 
-                    {/* Priority Selector */}
-                    <select
-                        value={priorityFilter}
-                        onChange={(e) => setPriorityFilter(e.target.value)}
-                        className="cursor-pointer h-8.5 rounded-[8px] border border-[#dddddd] bg-white px-2.5 !text-xs text-[#41454d] hover:border-[#9297a0] focus:border-[#458fff] outline-none"
-                    >
-                        <option value="all">All Priorities</option>
-                        <option value="high">High Priority</option>
-                        <option value="medium">Medium Priority</option>
-                        <option value="low">Low Priority</option>
-                    </select>
+                    {/* Priority Selector Dropdown */}
+                    <div className="relative shrink-0" ref={priorityDropdownRef}>
+                        <button
+                            type="button"
+                            onClick={() => setIsPriorityDropdownOpen((prev) => !prev)}
+                            className="cursor-pointer inline-flex items-center justify-between gap-1.5 h-[34px] rounded-[8px] border border-[#dddddd] bg-white px-2.5 !text-[11px] sm:!text-xs text-[#181d26] hover:border-[#9297a0] focus:border-[#458fff] transition-colors shadow-xs whitespace-nowrap"
+                        >
+                            <span>
+                                {priorityOptions.find((p) => p.id === priorityFilter)?.label || 'All Priorities'}
+                            </span>
+                            <ChevronDown size={13} className="text-[#9297a0] shrink-0" />
+                        </button>
+
+                        {isPriorityDropdownOpen && (
+                            <div className="absolute right-0 top-full mt-1.5 z-40 w-36 rounded-[8px] border border-[#dddddd] bg-white p-1 shadow-xl animate-fadeIn">
+                                {priorityOptions.map((opt) => (
+                                    <button
+                                        key={opt.id}
+                                        type="button"
+                                        onClick={() => {
+                                            setPriorityFilter(opt.id)
+                                            setIsPriorityDropdownOpen(false)
+                                        }}
+                                        className={`cursor-pointer flex w-full items-center justify-between rounded-[6px] px-2.5 py-1.5 !text-xs transition-colors ${
+                                            priorityFilter === opt.id
+                                                ? 'bg-[#f8fafc] !font-medium text-[#181d26]'
+                                                : 'text-[#41454d] hover:bg-[#f8fafc] hover:text-[#181d26]'
+                                        }`}
+                                    >
+                                        <span className="flex items-center gap-1.5">
+                                            {opt.dot && <span className={`h-1.5 w-1.5 rounded-full ${opt.dot}`} />}
+                                            <span>{opt.label}</span>
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -351,12 +402,19 @@ export default function SharedTasksPage() {
                         const id = sharedTask._id
                         const isUpdating = updatingId === id
                         const isDeleting = deletingId === id
+                        const sharedById = sharedTask?.shared_by?._id || sharedTask?.shared_by
+                        const isOwner = Boolean(
+                            currentUserId &&
+                            sharedById &&
+                            String(sharedById) === String(currentUserId)
+                        )
 
                         return (
                             <SharedTaskCard
                                 key={id}
                                 sharedTask={sharedTask}
                                 type={activeTab}
+                                isOwner={isOwner}
                                 onStatusChange={handleStatusChange}
                                 onDelete={(item) => setTaskToUnshare(item)}
                                 isUpdating={isUpdating}

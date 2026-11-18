@@ -8,7 +8,6 @@ import {
     UserRoundPlus,
     Settings,
     LogOut,
-    Menu,
     X,
 } from 'lucide-react'
 import BrandLogo from '../common/BrandLogo'
@@ -19,6 +18,8 @@ export default function Sidebar({
     onLogout,
     user,
     userInitial,
+    mobileOpen: externalMobileOpen,
+    setMobileOpen: externalSetMobileOpen,
 }) {
     const userName = user?.name || 'User'
     const userEmail = user?.email || ''
@@ -28,7 +29,10 @@ export default function Sidebar({
         .slice(0, 2)
         .map((word) => word[0].toUpperCase())
         .join('')
-    const [mobileOpen, setMobileOpen] = useState(false)
+
+    const [internalMobileOpen, setInternalMobileOpen] = useState(false)
+    const mobileOpen = externalMobileOpen !== undefined ? externalMobileOpen : internalMobileOpen
+    const setMobileOpen = externalSetMobileOpen || setInternalMobileOpen
 
     // Real-time counts from Redux store
     const tasks = useSelector((state) => state.tasks?.tasks) || []
@@ -57,44 +61,37 @@ export default function Sidebar({
 
     return (
         <>
-            {/* Mobile Toggle */}
-            <button
-                type="button"
-                onClick={() => setMobileOpen((prev) => !prev)}
-                aria-label={mobileOpen ? 'Close sidebar' : 'Open sidebar'}
-                aria-expanded={mobileOpen}
-                className="cursor-pointer fixed left-3 top-3 z-[1100] flex h-8 w-8 items-center justify-center rounded-[8px] border border-[#dddddd] bg-white !text-[#41454d] shadow-xs min-[701px]:hidden hover:!text-[#181d26]"
-            >
-                {mobileOpen ? <X size={16} /> : <Menu size={16} />}
-            </button>
-
             {/* Mobile Overlay */}
             {mobileOpen && (
-                <button
-                    type="button"
+                <div
                     aria-label="Close sidebar overlay"
                     onClick={() => setMobileOpen(false)}
-                    className="fixed inset-0 z-[1000] bg-[#181d26]/40 backdrop-blur-xs min-[701px]:hidden"
+                    className="fixed inset-0 z-40 bg-[#181d26]/40 backdrop-blur-xs md:hidden"
                 />
             )}
 
             {/* Sidebar */}
             <aside
                 className={`
-                    fixed inset-y-0 left-0 z-[1001]
-                    flex h-dvh w-[240px] shrink-0 flex-col
-                    border-r border-[#dddddd] bg-[#f8fafc]
-                    transition-transform duration-200
-
-                    min-[701px]:sticky min-[701px]:top-0
-                    min-[701px]:h-screen min-[701px]:translate-x-0
-
+                    fixed inset-y-0 left-0 z-50
+                    flex h-full w-[240px] shrink-0 flex-col
+                    border-r border-[#dddddd] bg-[#ffffff]
+                    shadow-2xl transition-transform duration-200 ease-in-out
+                    md:sticky md:top-0 md:h-screen md:translate-x-0 md:shadow-none md:bg-[#f8fafc]
                     ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
                 `}
             >
-                {/* Logo */}
-                <div className="flex h-14 shrink-0 items-center px-4 border-b border-[#dddddd] bg-white">
+                {/* Logo & Close Button */}
+                <div className="flex h-14 shrink-0 items-center justify-between px-4 border-b border-[#dddddd] bg-white">
                     <BrandLogo size="sm" />
+                    <button
+                        type="button"
+                        onClick={() => setMobileOpen(false)}
+                        aria-label="Close sidebar"
+                        className="cursor-pointer flex h-7 w-7 items-center justify-center rounded-[6px] text-[#41454d] hover:bg-[#f8fafc] hover:text-[#181d26] md:hidden transition-colors"
+                    >
+                        <X size={16} />
+                    </button>
                 </div>
 
                 {/* Navigation */}

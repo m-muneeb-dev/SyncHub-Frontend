@@ -45,8 +45,15 @@ export default function TaskPage() {
     const datePickerRef = useRef(null);
     const inlineDatePickerRef = useRef(null);
 
+    // Optimized Caching (Option B): Fetch only if tasks not already in Redux
     useEffect(() => {
-        dispatch(fetchTasks());
+        let promise = null;
+        if (tasks.length === 0) {
+            promise = dispatch(fetchTasks());
+        }
+        return () => {
+            promise?.abort();
+        };
     }, [dispatch]);
 
     // Close popups on outside click
@@ -134,11 +141,16 @@ export default function TaskPage() {
     const currentTasks = filteredTasks.slice(indexOfFirstTask, indexOfLastTask);
     const totalPages = Math.ceil(filteredTasks.length / tasksPerPage) || 1;
 
-    const handleConfirmDelete = () => {
+    const handleConfirmDelete = async () => {
         if (!taskToDelete) return;
-        dispatch(deleteTask(taskToDelete._id)).then(() => {
+        const taskId = taskToDelete._id || taskToDelete.id;
+        if (!taskId) return;
+        try {
+            await dispatch(deleteTask(taskId)).unwrap();
             setTaskToDelete(null);
-        });
+        } catch (err) {
+            console.error('Failed to delete task:', err);
+        }
     };
 
     return (
@@ -146,18 +158,18 @@ export default function TaskPage() {
             <div className="max-w-7xl mx-auto space-y-6">
 
                 {/* Header Section */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div>
-                        <h1 className="!text-xl font-semibold tracking-tight text-[#181d26]">My Tasks</h1>
-                        <p className="!text-xs text-[#41454d] mt-1">{tasks.length} active personal tasks recorded</p>
+                <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                        <h1 className="!text-lg sm:!text-xl font-semibold tracking-tight text-[#181d26] truncate">My Tasks</h1>
+                        <p className="!text-xs text-[#41454d] mt-0.5 truncate hidden xs:block sm:block">{tasks.length} active personal tasks recorded</p>
                     </div>
                     <button
                         type="button"
                         onClick={() => setIsCreateTaskOpen(true)}
-                        className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-[10px] bg-[#181d26] px-4 py-2 !text-xs font-medium text-white transition hover:bg-[#0d1218] active:bg-[#0d1218] shadow-xs"
+                        className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-[8px] sm:rounded-[10px] bg-[#181d26] px-3 py-1.5 sm:px-4 sm:py-2 !text-xs font-medium text-white transition hover:bg-[#0d1218] active:bg-[#0d1218] shadow-xs"
                     >
-                        <Plus size={15} />
-                        Create Task
+                        <Plus size={14} />
+                        <span>Create Task</span>
                     </button>
                 </div>
 
@@ -220,7 +232,7 @@ export default function TaskPage() {
                             </button>
 
                             {isDatePickerOpen && (
-                                <div className="absolute right-0 mt-2 z-50 shadow-xl">
+                                <div className="absolute right-0 top-full mt-2 z-50 shadow-xl">
                                     <DatePicker
                                         value={selectedDateFilter}
                                         onChange={(date) => {
@@ -244,117 +256,125 @@ export default function TaskPage() {
 
                 {/* Task Table Container */}
                 <div className="bg-white border border-[#dddddd] rounded-[12px] shadow-xs overflow-visible">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="border-b border-[#dddddd] bg-[#f8fafc] text-[11px] font-medium text-[#41454d]">
-                                    <th className="py-2.5 px-5 w-28">State</th>
-                                    <th className="py-2.5 px-3">Task title & description</th>
-                                    <th className="py-2.5 px-5 w-32">Priority</th>
-                                    <th className="py-2.5 px-5 w-36">Due date</th>
-                                    <th className="py-2.5 px-5 w-20 text-right">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-[#dddddd] !text-xs">
+                    <div className="overflow-x-auto md:overflow-visible">
+                        <div className="min-w-[500px]">
+                            {/* Column Headings */}
+                            <div className="grid grid-cols-[80px_1fr_100px_100px_48px] items-center px-5 py-2.5 bg-[#f8fafc] border-b border-[#dddddd] rounded-t-[12px] text-[11px] font-medium text-[#41454d]">
+                                <div>State</div>
+                                <div>Task title & description</div>
+                                <div>Priority</div>
+                                <div>Due date</div>
+                                <div className="text-right">Actions</div>
+                            </div>
+
+                            {/* Task Rows */}
+                            <div className="divide-y divide-[#dddddd] overflow-visible">
                                 {isLoading ? (
-                                    <tr>
-                                        <td colSpan="5" className="py-12 text-center text-[#41454d]">
-                                            <div className="flex justify-center items-center gap-2">
-                                                <Loader2 className="w-4 h-4 animate-spin text-[#181d26]" />
-                                                Loading tasks...
-                                            </div>
-                                        </td>
-                                    </tr>
+                                    <div className="flex items-center justify-center gap-2 py-12 text-[#41454d]">
+                                        <Loader2 size={16} className="animate-spin text-[#181d26]" />
+                                        <span className="!text-xs">Loading tasks...</span>
+                                    </div>
                                 ) : currentTasks.length === 0 ? (
-                                    <tr>
-                                        <td colSpan="5" className="py-12 text-center text-[#41454d]">
-                                            No tasks found.
-                                        </td>
-                                    </tr>
+                                    <div className="py-12 text-center !text-xs text-[#41454d]">
+                                        No tasks found.
+                                    </div>
                                 ) : (
                                     currentTasks.map((task) => {
                                         const taskId = task._id;
                                         const isMenuOpen = activeDropdownId === taskId;
                                         const isInlineDateOpen = activeDateTaskId === taskId;
+                                        const isRowActive = isMenuOpen || isInlineDateOpen;
                                         const formattedDueDate = formatDate(task.dueDate);
 
                                         return (
-                                            <tr key={taskId} className="hover:bg-[#f8fafc]/70 transition-colors group cursor-pointer">
+                                            <div
+                                                key={taskId}
+                                                className={`relative grid grid-cols-[80px_1fr_100px_100px_48px] items-center px-5 py-3 transition-colors overflow-visible hover:bg-[#f8fafc]/70 cursor-pointer ${
+                                                    isRowActive ? 'z-30' : 'z-0'
+                                                }`}
+                                            >
                                                 {/* Status Column */}
-                                                <td className="py-3.5 px-5 align-middle">
+                                                <div>
                                                     <span className={`text-[11px] font-medium ${task.status === 'Overdue' ? 'text-[#aa2d00]' : 'text-[#41454d]'}`}>
                                                         {task.status || 'Default'}
                                                     </span>
-                                                </td>
+                                                </div>
 
                                                 {/* Title & Description Column */}
-                                                <td className="py-3.5 px-3 align-middle">
-                                                    <div className="space-y-0.5">
-                                                        <p className="font-medium text-[#181d26]">{task.title}</p>
-                                                        <p className="text-[11px] text-[#41454d]">{task.description}</p>
-                                                    </div>
-                                                </td>
+                                                <div className="min-w-0 pr-4">
+                                                    <p className="!text-xs font-medium text-[#181d26] truncate">{task.title}</p>
+                                                    <p className="mt-0.5 text-[11px] text-[#41454d] truncate">{task.description}</p>
+                                                </div>
 
                                                 {/* Priority Column */}
-                                                <td className="py-3.5 px-5 align-middle">
+                                                <div>
                                                     <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[4px] text-[11px] font-medium ${getPriorityBadge(task.priority)}`}>
                                                         <span className={`w-1.5 h-1.5 rounded-full ${getPriorityDot(task.priority)}`}></span>
                                                         {task.priority ? task.priority.charAt(0).toUpperCase() + task.priority.slice(1) : 'Low'}
                                                     </span>
-                                                </td>
+                                                </div>
 
-                                                {/* Due Date Column with Toggleable DatePicker */}
-                                                <td className="py-3.5 px-5 align-middle text-[11px] relative">
-                                                    <div
+                                                {/* Due Date Column (Relative Parent + Absolute DatePicker) */}
+                                                <div className="relative overflow-visible">
+                                                    <button
+                                                        type="button"
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             setActiveDateTaskId(isInlineDateOpen ? null : taskId);
                                                         }}
-                                                        className="cursor-pointer inline-block hover:text-[#181d26] text-[#41454d] transition-colors"
+                                                        className="cursor-pointer whitespace-nowrap !text-[11px] text-[#41454d] transition-colors hover:text-[#181d26]"
                                                     >
                                                         {task.isOverdue ? (
-                                                            <span className="text-[#aa2d00] font-medium leading-tight block">
-                                                                {formattedDueDate} <span className="block text-[10px] text-[#aa2d00]/80">&middot; Overdue</span>
-                                                            </span>
+                                                            <span className="text-[#aa2d00] font-medium">{formattedDueDate}</span>
                                                         ) : (
                                                             <span>{formattedDueDate}</span>
                                                         )}
-                                                    </div>
+                                                    </button>
 
                                                     {/* DatePicker */}
                                                     {isInlineDateOpen && (
-                                                        <div
-                                                            ref={inlineDatePickerRef}
-                                                            className="absolute left-0 top-12 z-50 shadow-xl"
-                                                            onClick={(e) => e.stopPropagation()}
-                                                        >
-                                                            <DatePicker
-                                                                value={task.dueDate}
-                                                                onChange={() => {
+                                                        <>
+                                                            <div
+                                                                className="fixed inset-0 z-40 bg-[#181d26]/30 backdrop-blur-xs sm:hidden"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
                                                                     setActiveDateTaskId(null);
                                                                 }}
                                                             />
-                                                        </div>
+                                                            <div
+                                                                ref={inlineDatePickerRef}
+                                                                className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 flex justify-center sm:absolute sm:inset-auto sm:translate-y-0 sm:right-0 sm:top-full sm:mt-1.5 sm:w-[280px] sm:bg-white sm:rounded-[12px] sm:border sm:border-[#dddddd] sm:shadow-xl sm:p-2"
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            >
+                                                                <DatePicker
+                                                                    value={task.dueDate}
+                                                                    onChange={() => {
+                                                                        setActiveDateTaskId(null);
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                        </>
                                                     )}
-                                                </td>
+                                                </div>
 
-                                                {/* Actions Column with Dropdown */}
-                                                <td className="py-3.5 px-5 align-middle text-right relative">
+                                                {/* Actions Column (Relative Parent + Absolute Dropdown) */}
+                                                <div className="relative flex justify-end overflow-visible">
                                                     <button
+                                                        type="button"
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             setActiveDropdownId(isMenuOpen ? null : taskId);
                                                         }}
-                                                        className="p-1 text-[#41454d] hover:text-[#181d26] hover:bg-[#f8fafc] rounded-[6px] border border-transparent hover:border-[#dddddd] transition-colors cursor-pointer"
-                                                        title="Actions"
+                                                        className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-[6px] border border-[#dddddd] bg-white text-[#41454d] transition-colors hover:bg-[#f8fafc] hover:text-[#181d26]"
+                                                        aria-label="More actions"
                                                     >
-                                                        <MoreHorizontal className="w-4 h-4" />
+                                                        <MoreHorizontal size={14} />
                                                     </button>
 
                                                     {isMenuOpen && (
                                                         <div
                                                             ref={dropdownRef}
-                                                            className="absolute right-8 top-2 z-50 text-left shadow-xl"
+                                                            className="absolute right-0 top-full mt-1.5 z-50 w-max shrink-0 bg-white rounded-[12px] border border-[#dddddd] shadow-xl overflow-hidden"
                                                             onClick={(e) => e.stopPropagation()}
                                                         >
                                                             <TaskDropdown
@@ -380,17 +400,17 @@ export default function TaskPage() {
                                                             />
                                                         </div>
                                                     )}
-                                                </td>
-                                            </tr>
+                                                </div>
+                                            </div>
                                         );
                                     })
                                 )}
-                            </tbody>
-                        </table>
+                            </div>
+                        </div>
                     </div>
 
                     {/* Pagination Footer */}
-                    <div className="flex flex-col sm:flex-row items-center justify-between px-5 py-3 border-t border-[#dddddd] bg-white gap-3">
+                    <div className="flex flex-col sm:flex-row items-center justify-between px-5 py-3 border-t border-[#dddddd] rounded-b-[12px] bg-white gap-3">
                         <p className="!text-xs text-[#41454d]">
                             Showing <span className="font-medium text-[#181d26]">{filteredTasks.length > 0 ? indexOfFirstTask + 1 : 0}&ndash;{Math.min(indexOfLastTask, filteredTasks.length)}</span> of <span className="font-medium text-[#181d26]">{filteredTasks.length}</span> tasks
                         </p>

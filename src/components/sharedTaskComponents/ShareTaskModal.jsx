@@ -65,10 +65,14 @@ function ShareTaskModalDialog({ onClose, preselectedTask = null }) {
     const friendDropdownRef = useRef(null)
     const taskDropdownRef = useRef(null)
 
-    // Load friends if not yet loaded
+    // Load friends if not yet loaded with AbortController cancellation
     useEffect(() => {
+        let promise = null
         if (friendsStatus === 'idle') {
-            dispatch(fetchFriends())
+            promise = dispatch(fetchFriends())
+        }
+        return () => {
+            promise?.abort?.()
         }
     }, [friendsStatus, dispatch])
 

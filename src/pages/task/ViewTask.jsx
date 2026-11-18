@@ -57,32 +57,29 @@ export default function ViewTask({
             return
         }
 
-        // Otherwise fetch from API
-        let isMounted = true
+        // Otherwise fetch from API with AbortController
+        const controller = new AbortController()
         setLoading(true)
         setError(null)
 
-        getTaskByIdAPI(taskId)
+        getTaskByIdAPI(taskId, { signal: controller.signal })
             .then((res) => {
-                if (isMounted) {
-                    const fetched = res.userTask || res.task || res
-                    setCurrentTask(fetched)
-                }
+                const fetched = res.userTask || res.task || res
+                setCurrentTask(fetched)
             })
             .catch((err) => {
-                if (isMounted) {
-                    console.error('Failed to load task details:', err)
-                    setError(err?.response?.data?.message || 'Failed to load task details')
+                if (err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED') {
+                    return
                 }
+                console.error('Failed to load task details:', err)
+                setError(err?.response?.data?.message || 'Failed to load task details')
             })
             .finally(() => {
-                if (isMounted) {
-                    setLoading(false)
-                }
+                setLoading(false)
             })
 
         return () => {
-            isMounted = false
+            controller.abort()
         }
     }, [taskProp, paramTaskId, tasks])
 
